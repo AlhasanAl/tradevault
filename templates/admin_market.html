@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+<head><title>TradeVault - Market Schedule</title></head>
+<body>
+  <h1>TradeVault - Admin</h1>
+  <h2>Market Schedule</h2>
+
+  {% with messages = get_flashed_messages() %}
+    {% for m in messages %}<p><strong>{{ m }}</strong></p>{% endfor %}
+  {% endwith %}
+
+  <p>Market status: <strong>{{ status }}</strong></p>
+
+  <h3>Market Hours</h3>
+  <form method="post" action="{{ url_for('update_hours') }}">
+    Open <input type="time" name="open_time" value="{{ sched['open_time'] }}" required>
+    Close <input type="time" name="close_time" value="{{ sched['close_time'] }}" required>
+    <button type="submit">Save Hours</button>
+  </form>
+
+  <h3>Holiday Calendar</h3>
+  <form method="post" action="{{ url_for('add_holiday') }}">
+    <input type="date" name="holiday_date" required>
+    <button type="submit">Add Holiday</button>
+  </form>
+  <ul>
+    {% for h in holidays %}<li>{{ h['holiday_date'] }}</li>{% else %}<li>No holidays set</li>{% endfor %}
+  </ul>
+</body>
+</html>

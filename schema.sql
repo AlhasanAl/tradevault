@@ -26,3 +26,18 @@ CREATE TABLE transactions (
 INSERT INTO customers (full_name, username, email)
 VALUES ('Test Customer', 'testuser', 'test@example.com');
 INSERT INTO cash_accounts (customer_id, balance) VALUES (1, 0);
+
+DROP TABLE IF EXISTS market_schedule;
+DROP TABLE IF EXISTS holidays;
+
+CREATE TABLE market_schedule (
+    schedule_id INTEGER PRIMARY KEY,
+    open_time   TEXT NOT NULL,
+    close_time  TEXT NOT NULL
+);
+
+CREATE TABLE holidays (
+    holiday_date TEXT PRIMARY KEY
+);
+
+INSERT INTO market_schedule (schedule_id, open_time, close_time) VALUES (1, '09:30', '16:00');
