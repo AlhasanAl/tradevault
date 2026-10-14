@@ -1,4 +1,6 @@
 import sqlite3
+from datetime import datetime, timedelta, timezone
+
 from flask import Flask, render_template, request, redirect, url_for, flash
 
 app = Flask(__name__)
@@ -19,57 +21,6 @@ def get_account(db):
     ).fetchone()
 
 
-@app.route("/")
-def home():
-    return "TradeVault is running"
-
-
-@app.route("/cash")
-def cash():
-    db = get_db()
-    account = get_account(db)
-    db.close()
-    return render_template("cash.html", balance=account["balance"])
-
-
-@app.route("/cash/<action>", methods=["POST"])
-def update_cash(action):
-    try:
-        amount = round(float(request.form["amount"]), 2)
-    except ValueError:
-        flash("Enter a valid amount.")
-        return redirect(url_for("cash"))
-
-    if amount <= 0:
-        flash("Amount must be greater than zero.")
-        return redirect(url_for("cash"))
-
-    db = get_db()
-    account = get_account(db)
-
-    if action == "withdraw" and amount > round(account["balance"], 2):
-        flash("Insufficient funds. You can withdraw up to your cash balance.")
-    elif action in ("deposit", "withdraw"):
-        change = amount if action == "deposit" else -amount
-        db.execute(
-            "UPDATE cash_accounts SET balance = ROUND(balance + ?, 2) WHERE account_id = ?",
-            (change, account["account_id"]),
-        )
-        db.execute(
-            "INSERT INTO transactions (account_id, type, amount) VALUES (?, ?, ?)",
-            (account["account_id"], action, amount),
-        )
-        db.commit()
-        flash(f"{action.capitalize()} of ${amount:.2f} successful.")
-
-    db.close()
-    return redirect(url_for("cash"))
-
-
-# ---------- Market schedule (admin) ----------
-from datetime import datetime
-
-
 def market_is_open(db):
     now = datetime.now()
     if now.weekday() >= 5:
@@ -86,6 +37,89 @@ def market_is_open(db):
     return False, "Closed: outside market hours"
 
 
+@app.context_processor
+def inject_globals():
+    db = get_db()
+    is_open, _ = market_is_open(db)
+    customer = db.execute(
+        "SELECT full_name FROM customers WHERE customer_id = ?", (CUSTOMER_ID,)
+    ).fetchone()
+    db.close()
+    name = customer["full_name"] if customer else "Guest"
+    initials = "".join(part[0] for part in name.split()[:2]).upper()
+    return {"market_open": is_open, "customer_name": name, "customer_initials": initials}
+
+
+@app.template_filter("nice_date")
+def nice_date(value):
+    return datetime.strptime(value[:10], "%Y-%m-%d").strftime("%a, %b %d, %Y")
+
+
+@app.template_filter("clock")
+def clock(value):
+    return datetime.strptime(value, "%H:%M").strftime("%I:%M %p").lstrip("0")
+
+
+@app.template_filter("nice_time")
+def nice_time(value):
+    utc = datetime.strptime(value, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    return utc.astimezone().strftime("%b %d, %I:%M %p")  # SQLite stores UTC; show local time
+
+
+@app.route("/")
+def home():
+    return redirect(url_for("cash"))
+
+
+# ---------- Cash account (customer) ----------
+@app.route("/cash")
+def cash():
+    db = get_db()
+    account = get_account(db)
+    activity = db.execute(
+        "SELECT type, amount, timestamp FROM transactions WHERE account_id = ? "
+        "ORDER BY transaction_id DESC LIMIT 5",
+        (account["account_id"],),
+    ).fetchall()
+    db.close()
+    return render_template("cash.html", balance=account["balance"], activity=activity)
+
+
+@app.route("/cash/<action>", methods=["POST"])
+def update_cash(action):
+    try:
+        amount = round(float(request.form["amount"]), 2)
+    except ValueError:
+        flash("Enter a valid amount.", "error")
+        return redirect(url_for("cash"))
+
+    if amount <= 0:
+        flash("Amount must be greater than zero.", "error")
+        return redirect(url_for("cash"))
+
+    db = get_db()
+    account = get_account(db)
+
+    if action == "withdraw" and amount > round(account["balance"], 2):
+        flash("Insufficient funds. You can withdraw up to your cash balance.", "error")
+    elif action in ("deposit", "withdraw"):
+        change = amount if action == "deposit" else -amount
+        db.execute(
+            "UPDATE cash_accounts SET balance = ROUND(balance + ?, 2) WHERE account_id = ?",
+            (change, account["account_id"]),
+        )
+        db.execute(
+            "INSERT INTO transactions (account_id, type, amount) VALUES (?, ?, ?)",
+            (account["account_id"], action, amount),
+        )
+        db.commit()
+        flash(f"{action.capitalize()} of ${amount:,.2f} successful.", "success")
+
+    db.close()
+    return redirect(url_for("cash"))
+
+
+# ---------- Market schedule (admin) ----------
 @app.route("/admin/market")
 def admin_market():
     db = get_db()
@@ -94,9 +128,25 @@ def admin_market():
     ).fetchone()
     holidays = db.execute("SELECT holiday_date FROM holidays ORDER BY holiday_date").fetchall()
     is_open, status = market_is_open(db)
+    holiday_dates = {h["holiday_date"] for h in holidays}
     db.close()
+
+    now = datetime.now()
+    monday = now - timedelta(days=now.weekday())
+    week = []
+    for i in range(7):
+        day = monday + timedelta(days=i)
+        key = day.strftime("%Y-%m-%d")
+        week.append({
+            "name": day.strftime("%a"),
+            "date": day.strftime("%b %d"),
+            "trading": i < 5 and key not in holiday_dates,
+            "holiday": key in holiday_dates,
+            "today": i == now.weekday(),
+        })
     return render_template("admin_market.html", sched=sched, holidays=holidays,
-                           status=status, is_open=is_open)
+                           status=status, is_open=is_open, week=week,
+                           now=now.strftime("%I:%M %p").lstrip("0"))
 
 
 @app.route("/admin/market/hours", methods=["POST"])
@@ -104,7 +154,7 @@ def update_hours():
     open_time = request.form["open_time"]
     close_time = request.form["close_time"]
     if open_time >= close_time:
-        flash("Invalid schedule: open time must be before close time.")
+        flash("Invalid schedule: open time must be before close time.", "error")
     else:
         db = get_db()
         db.execute(
@@ -113,7 +163,7 @@ def update_hours():
         )
         db.commit()
         db.close()
-        flash(f"Market hours set to {open_time} - {close_time}.")
+        flash(f"Market hours set to {clock(open_time)} - {clock(close_time)}.", "success")
     return redirect(url_for("admin_market"))
 
 
@@ -125,11 +175,11 @@ def add_holiday():
         datetime.strptime(holiday_date, "%Y-%m-%d")
         db.execute("INSERT INTO holidays (holiday_date) VALUES (?)", (holiday_date,))
         db.commit()
-        flash(f"{holiday_date} added as a market holiday.")
+        flash(f"{nice_date(holiday_date)} added as a market holiday.", "success")
     except ValueError:
-        flash("Invalid schedule: enter a valid date.")
+        flash("Invalid schedule: enter a valid date.", "error")
     except sqlite3.IntegrityError:
-        flash("That date is already a holiday.")
+        flash("That date is already a holiday.", "error")
     db.close()
     return redirect(url_for("admin_market"))
 
@@ -140,7 +190,8 @@ def admin_stocks():
     db = get_db()
     stocks = db.execute("SELECT * FROM stocks ORDER BY ticker").fetchall()
     db.close()
-    return render_template("admin_stocks.html", stocks=stocks)
+    total_cap = sum(s["volume"] * s["initial_price"] for s in stocks)
+    return render_template("admin_stocks.html", stocks=stocks, total_cap=total_cap)
 
 
 @app.route("/admin/stocks/create", methods=["POST"])
@@ -151,15 +202,15 @@ def create_stock():
         volume = int(request.form["volume"])
         price = round(float(request.form["initial_price"]), 2)
     except ValueError:
-        flash("Volume must be a whole number and price must be a number.")
+        flash("Volume must be a whole number and price must be a number.", "error")
         return redirect(url_for("admin_stocks"))
     if not company or not ticker or volume <= 0 or price <= 0:
-        flash("All fields are required. Volume and price must be greater than zero.")
+        flash("All fields are required. Volume and price must be greater than zero.", "error")
         return redirect(url_for("admin_stocks"))
 
     db = get_db()
     if db.execute("SELECT 1 FROM stocks WHERE ticker = ?", (ticker,)).fetchone():
-        flash(f"Ticker {ticker} already exists.")
+        flash(f"Ticker {ticker} already exists.", "error")
     else:
         cur = db.execute(
             "INSERT INTO stocks (company_name, ticker, volume, initial_price) VALUES (?, ?, ?, ?)",
@@ -170,6 +221,6 @@ def create_stock():
             (cur.lastrowid, price),
         )
         db.commit()
-        flash(f"{ticker} created at ${price:.2f}.")
+        flash(f"{ticker} created at ${price:,.2f}.", "success")
     db.close()
     return redirect(url_for("admin_stocks"))
