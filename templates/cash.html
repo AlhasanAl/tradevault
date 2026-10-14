@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head><title>TradeVault - Cash Account</title></head>
+<body>
+  <h1>TradeVault</h1>
+  <h2>Cash Account</h2>
+
+  {% with messages = get_flashed_messages() %}
+    {% for m in messages %}<p><strong>{{ m }}</strong></p>{% endfor %}
+  {% endwith %}
+
+  <p>Cash Balance: ${{ "%.2f"|format(balance) }}</p>
+
+  <h3>Deposit</h3>
+  <form method="post" action="{{ url_for('update_cash', action='deposit') }}">
+    <input type="number" name="amount" step="0.01" min="0.01" required>
+    <button type="submit">Deposit</button>
+  </form>
+
+  <h3>Withdraw</h3>
+  <form method="post" action="{{ url_for('update_cash', action='withdraw') }}">
+    <input type="number" name="amount" step="0.01" min="0.01" required>
+    <button type="submit">Withdraw</button>
+  </form>
+</body>
+</html>
