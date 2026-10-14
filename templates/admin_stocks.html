@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head><title>TradeVault - Create Stock</title></head>
+<body>
+  <h1>TradeVault - Admin</h1>
+  <h2>Create New Stock</h2>
+
+  {% with messages = get_flashed_messages() %}
+    {% for m in messages %}<p><strong>{{ m }}</strong></p>{% endfor %}
+  {% endwith %}
+
+  <form method="post" action="{{ url_for('create_stock') }}">
+    <p>Company Name <input type="text" name="company_name" required></p>
+    <p>Stock Ticker <input type="text" name="ticker" maxlength="5" required></p>
+    <p>Volume (Total Shares) <input type="number" name="volume" min="1" step="1" required></p>
+    <p>Initial Price <input type="number" name="initial_price" min="0.01" step="0.01" required></p>
+    <button type="submit">Create Stock</button>
+  </form>
+
+  <h3>Listed Stocks</h3>
+  <table border="1" cellpadding="6">
+    <tr><th>Ticker</th><th>Company</th><th>Volume</th><th>Initial Price</th><th>Market Cap</th></tr>
+    {% for s in stocks %}
+    <tr>
+      <td>{{ s['ticker'] }}</td>
+      <td>{{ s['company_name'] }}</td>
+      <td>{{ "{:,}".format(s['volume']) }}</td>
+      <td>${{ "%.2f"|format(s['initial_price']) }}</td>
+      <td>${{ "{:,.2f}".format(s['volume'] * s['initial_price']) }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5">No stocks yet</td></tr>
+    {% endfor %}
+  </table>
+</body>
+</html>

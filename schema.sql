@@ -41,3 +41,21 @@ CREATE TABLE holidays (
 );
 
 INSERT INTO market_schedule (schedule_id, open_time, close_time) VALUES (1, '09:30', '16:00');
+
+DROP TABLE IF EXISTS price_history;
+DROP TABLE IF EXISTS stocks;
+
+CREATE TABLE stocks (
+    stock_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_name  TEXT NOT NULL,
+    ticker        TEXT NOT NULL UNIQUE,
+    volume        INTEGER NOT NULL CHECK (volume > 0),
+    initial_price REAL NOT NULL CHECK (initial_price > 0)
+);
+
+CREATE TABLE price_history (
+    price_history_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stock_id  INTEGER NOT NULL REFERENCES stocks(stock_id),
+    price     REAL NOT NULL,
+    timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
