@@ -132,3 +132,44 @@ def add_holiday():
         flash("That date is already a holiday.")
     db.close()
     return redirect(url_for("admin_market"))
+
+
+# ---------- Create stock (admin) ----------
+@app.route("/admin/stocks")
+def admin_stocks():
+    db = get_db()
+    stocks = db.execute("SELECT * FROM stocks ORDER BY ticker").fetchall()
+    db.close()
+    return render_template("admin_stocks.html", stocks=stocks)
+
+
+@app.route("/admin/stocks/create", methods=["POST"])
+def create_stock():
+    company = request.form["company_name"].strip()
+    ticker = request.form["ticker"].strip().upper()
+    try:
+        volume = int(request.form["volume"])
+        price = round(float(request.form["initial_price"]), 2)
+    except ValueError:
+        flash("Volume must be a whole number and price must be a number.")
+        return redirect(url_for("admin_stocks"))
+    if not company or not ticker or volume <= 0 or price <= 0:
+        flash("All fields are required. Volume and price must be greater than zero.")
+        return redirect(url_for("admin_stocks"))
+
+    db = get_db()
+    if db.execute("SELECT 1 FROM stocks WHERE ticker = ?", (ticker,)).fetchone():
+        flash(f"Ticker {ticker} already exists.")
+    else:
+        cur = db.execute(
+            "INSERT INTO stocks (company_name, ticker, volume, initial_price) VALUES (?, ?, ?, ?)",
+            (company, ticker, volume, price),
+        )
+        db.execute(
+            "INSERT INTO price_history (stock_id, price) VALUES (?, ?)",
+            (cur.lastrowid, price),
+        )
+        db.commit()
+        flash(f"{ticker} created at ${price:.2f}.")
+    db.close()
+    return redirect(url_for("admin_stocks"))
