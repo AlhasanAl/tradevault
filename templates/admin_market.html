@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Market schedule{% endblock %}
+{% block heading %}Market schedule{% endblock %}
+{% block content %}
+<div class="stack">
+  <section class="panel status-panel">
+    <div>
+      <p class="figure-label">Market status right now</p>
+      <p class="state {{ 'open' if is_open else 'closed' }}">{{ status }}</p>
+      <p class="meta">Trading hours {{ sched['open_time']|clock }} to {{ sched['close_time']|clock }}, weekdays only</p>
+    </div>
+    <div class="clock">
+      <p class="figure-label">Local time</p>
+      <p class="clock-time">{{ now }}</p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>This week</h2>
+    <ol class="week">
+      {% for d in week %}
+        <li class="day {{ 'today' if d.today }}">
+          <span class="day-name">{{ d.name }}</span>
+          <span class="day-date">{{ d.date }}</span>
+          {% if d.holiday %}
+            <span class="tag closed">Holiday</span>
+          {% elif d.trading %}
+            <span class="tag open">Open</span>
+          {% else %}
+            <span class="tag closed">Closed</span>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Market hours</h2>
+      <form method="post" action="{{ url_for('update_hours') }}">
+        <div class="row">
+          <div class="field">
+            <label for="open-time">Open</label>
+            <input id="open-time" type="time" name="open_time" value="{{ sched['open_time'] }}" required>
+          </div>
+          <div class="field">
+            <label for="close-time">Close</label>
+            <input id="close-time" type="time" name="close_time" value="{{ sched['close_time'] }}" required>
+          </div>
+        </div>
+        <button type="submit">Save hours</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Holiday calendar</h2>
+      <form method="post" action="{{ url_for('add_holiday') }}">
+        <div class="field">
+          <label for="holiday-date">Date</label>
+          <input id="holiday-date" type="date" name="holiday_date" required>
+        </div>
+        <button type="submit">Add holiday</button>
+      </form>
+      <ul class="holidays">
+        {% for h in holidays %}
+          <li>{{ h['holiday_date']|nice_date }}</li>
+        {% else %}
+          <li class="empty">No holidays set.</li>
+        {% endfor %}
+      </ul>
+    </section>
+  </div>
+</div>
+{% endblock %}
