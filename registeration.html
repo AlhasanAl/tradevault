@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TradeVault | Account Access</title>
+
+<style>
+{
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	font-family: Arial, sans-serif;
+	background: #f2f5f9;
+	color: #17243a;
+}
+
+header {
+	background: #142b4a;
+	color: white;
+	text-align: center;
+	padding: 25px 15px;
+}
+
+header h1 {
+	margin: 0 0 8px;
+}
+
+header p {
+	margin: 0;
+	color: #d5e3f5;
+}
+
+main {
+	max-width: 460px;
+	margin: 40px auto;
+	padding: 25px;
+	background: white;
+	border-radius: 12px;
+	box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+}
+
+.tabs {
+	display: flex;
+	gap: 10px;
+	margin-bottom: 25px;
+}
+
+.tabs button {
+	flex: 1;
+	padding: 12px;
+	border: 1px solid #cbd5e1;
+	background: white;
+	cursor: pointer;
+	border-radius: 6px;
+	font-weight: bold;
+}
+
+.tabs button.active {
+	background: #142b4a;
+	color: white;
+	border-color: #142b4a;
+}
+
+.field {
+	margin-bottom: 16px;
+}
+
+label {
+	display: block;
+	margin-bottom: 6px;
+	font-weight: bold;
+}
+
+input {
+	width: 100%;
+	padding: 11px;
+	border: 1px solid #b8c4d3;
+	border-radius: 6px;
+	font-size: 15px;
+}
+
+input:focus {
+	outline: 2px solid #6b9bd2;
+	border-color: #245b91;
+}
+
+.submit-btn {
+	width: 100%;
+	padding: 12px;
+	border: none;
+	border-radius: 6px;
+	background: #16734a;
+	color: white;
+	font-size: 16px;
+	font-weight: bold;
+	cursor: pointer;
+}
+
+.submit-btn:hover {
+	background: #105b3a;
+}
+
+.message {
+	display: none;
+	margin-top: 15px;
+	padding: 10px;
+	border-radius: 5px;
+}
+
+.error {
+	background: #fff0f0;
+	color: #a51d1d;
+}
+
+.success {
+	background: #e8f7ee;
+	color: #17633a;
+}
+
+footer {
+	text-align: center;
+	padding: 20px;
+	color: #596579;
+}
+
+[hidden] {
+	display: none !important;
+}
+
+header {
+    background: #142b4a;
+    color: white;
+    padding: 20px 7%;
+}
+
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.brand h1 {
+    margin: 0;
+    font-size: 28px;
+}
+
+.brand p {
+    margin: 5px 0 0;
+    color: #d5e3f5;
+    font-size: 13px;
+}
+
+nav {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+}
+
+nav a {
+    color: white;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+nav a:hover {
+    color: #9fe0bc;
+}
+
+nav .register-link {
+    background: #168052;
+    padding: 11px 17px;
+    border-radius: 6px;
+    font-weight: bold;
+}
+
+</style>
+</head>
+
+<body>
+<header>
+<div class="navbar">
+<div class="brand">
+	<h1>TradeVault</h1>
+	<p>Trade with confidence.</p>
+</div>
+
+<nav>
+	<a href="index.html">Home</a>
+	<a href="registration.html">Log In</a>
+	<a href="registration.html" class="register-link">
+		Register
+	</a>
+</nav>
+</div>
+</header>
+
+<main>
+<div class="tabs">
+	<button type="button" id="registerTab" class="active"
+		aria-controls="registerForm" aria-selected="true">
+		Register
+	</button>
+
+	<button type="button" id="loginTab"
+		aria-controls="loginForm" aria-selected="false">
+		Log In
+	</button>
+</div>
+
+<!-- Registration -->
+<section id="registerSection">
+	<h2>Create an Account</h2>
+	<p>Register to get started with TradeVault.</p>
+
+	<form id="registerForm">
+		<div class="field">
+			<label for="registerName">Full Name</label>
+			<input type="text" id="registerName"
+				name="name" placeholder="John Doe"
+				autocomplete="name" required>
+		</div>
+
+		<div class="field">
+			<label for="registerEmail">Email Address</label>
+			<input type="email" id="registerEmail"
+				name="email" placeholder="you@example.com"
+				autocomplete="email" required>
+		</div>
+
+		<div class="field">
+			<label for="registerPassword">Password</label>
+			<input type="password" id="registerPassword"
+				name="password" minlength="8"
+				autocomplete="new-password"
+				placeholder="At least 8 characters" required>
+		</div>
+
+		<div class="field">
+			<label for="confirmPassword">Confirm Password</label>
+			<input type="password" id="confirmPassword"
+				name="confirmPassword"
+				autocomplete="new-password" required>
+		</div>
+
+		<div id="registerError" class="message error"
+			role="alert"></div>
+
+		<div id="registerSuccess" class="message success"
+			role="status"></div>
+
+		<button type="submit" class="submit-btn">
+			Create Account
+		</button>
+	</form>
+</section>
+
+<!-- Login -->
+<section id="loginSection" hidden>
+	<h2>Welcome Back</h2>
+	<p>Log in to access your TradeVault account.</p>
+
+	<form id="loginForm">
+		<div class="field">
+			<label for="loginEmail">Email Address</label>
+			<input type="email" id="loginEmail"
+				name="email" placeholder="you@example.com"
+				autocomplete="email" required>
+		</div>
+
+		<div class="field">
+			<label for="loginPassword">Password</label>
+			<input type="password" id="loginPassword"
+				name="password"
+				autocomplete="current-password"
+				required>
+		</div>
+
+		<div id="loginError" class="message error"
+			role="alert"></div>
+
+		<div id="loginSuccess" class="message success"
+			role="status"></div>
+
+		<button type="submit" class="submit-btn">
+			Log In
+		</button>
+	</form>
+</section>
+</main>
+<footer>
+&copy; 2026 TradeVault
+</footer>
+
+<script>
+const registerTab = document.getElementById("registerTab");
+const loginTab = document.getElementById("loginTab");
+const registerSection = document.getElementById("registerSection");
+const loginSection = document.getElementById("loginSection");
+
+function showForm(formType) {
+	const registering = formType === "register";
+
+	registerSection.hidden = !registering;
+	loginSection.hidden = registering;
+
+	registerTab.classList.toggle("active", registering);
+	loginTab.classList.toggle("active", !registering);
+
+	registerTab.setAttribute("aria-selected", registering);
+	loginTab.setAttribute("aria-selected", !registering);
+}
+
+registerTab.addEventListener("click", () => showForm("register"));
+loginTab.addEventListener("click", () => showForm("login"));
+
+function showMessage(elementId, message) {
+	const element = document.getElementById(elementId);
+	element.textContent = message;
+	element.style.display = "block";
+}
+
+function clearMessages(form) {
+	form.querySelectorAll(".message").forEach(message => {
+		message.textContent = "";
+		message.style.display = "none";
+	});
+}
+
+document.getElementById("registerForm").addEventListener(
+	"submit", function(event) {
+		event.preventDefault();
+		clearMessages(this);
+
+		const name = document.getElementById("registerName").value.trim();
+		const email = document.getElementById("registerEmail").value.trim();
+		const password = document.getElementById("registerPassword").value;
+		const confirmPassword = document.getElementById("confirmPassword").value;
+
+		if (!name || !email) {
+			showMessage("registerError", "Please complete all required fields.");
+			return;
+		}
+
+		if (password.length < 8) {
+			showMessage("registerError",
+				"Your password must contain at least 8 characters.");
+			return;
+		}
+
+		if (password !== confirmPassword) {
+			showMessage("registerError", "Your passwords do not match.");
+			return;
+		}
+
+		showMessage("registerSuccess",
+			"Form validated! Account creation requires backend integration.");
+	}
+);
+
+document.getElementById("loginForm").addEventListener(
+	"submit", function(event) {
+		event.preventDefault();
+		clearMessages(this);
+
+		const email = document.getElementById("loginEmail").value.trim();
+		const password = document.getElementById("loginPassword").value;
+
+		if (!email || !password) {
+			showMessage("loginError",
+				"Please enter your email address and password.");
+			return;
+		}
+
+		showMessage("loginSuccess",
+			"Form validated! Authentication requires backend integration.");
+	}
+);
+</script>
+</body>
+</html>

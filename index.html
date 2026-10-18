@@ -1,0 +1,248 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TradeVault | Trade with Confidence</title>
+
+<style>
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	font-family: Arial, sans-serif;
+	background: #f2f5f9;
+	color: #17243a;
+}
+
+header {
+	background: #142b4a;
+	color: white;
+	padding: 20px 7%;
+}
+
+.navbar {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 20px;
+	flex-wrap: wrap;
+}
+
+.brand h1 {
+	margin: 0;
+	font-size: 28px;
+}
+
+.brand p {
+	margin: 5px 0 0;
+	color: #d5e3f5;
+	font-size: 13px;
+}
+
+nav {
+	display: flex;
+	align-items: center;
+	gap: 22px;
+}
+
+nav a {
+	color: white;
+	text-decoration: none;
+	font-size: 14px;
+}
+
+nav a:hover {
+	color: #9fe0bc;
+}
+
+nav .register-link {
+	background: #168052;
+	padding: 11px 17px;
+	border-radius: 6px;
+	font-weight: bold;
+}
+
+.hero {
+	background: #142b4a;
+	color: white;
+	text-align: center;
+	padding: 75px 20px 85px;
+}
+
+.hero .eyebrow {
+	color: #9fe0bc;
+	font-size: 12px;
+	font-weight: bold;
+	letter-spacing: 2px;
+}
+
+.hero h2 {
+	max-width: 750px;
+	margin: 20px auto;
+	font-size: clamp(32px, 5vw, 52px);
+	line-height: 1.15;
+}
+
+.hero p {
+	max-width: 580px;
+	margin: 0 auto 30px;
+	color: #d5e3f5;
+	line-height: 1.7;
+}
+
+.button {
+	display: inline-block;
+	background: #168052;
+	color: white;
+	padding: 15px 24px;
+	border-radius: 6px;
+	text-decoration: none;
+	font-weight: bold;
+}
+
+.button:hover {
+	background: #116840;
+}
+
+.features {
+	max-width: 1050px;
+	margin: auto;
+	padding: 55px 24px;
+}
+
+.features h2 {
+	text-align: center;
+	margin: 0 0 30px;
+	color: #142b4a;
+}
+
+.feature-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 22px;
+}
+
+.feature-card {
+	background: white;
+	padding: 26px;
+	border-radius: 10px;
+	box-shadow: 0 4px 15px rgba(20, 43, 74, 0.06);
+}
+
+.feature-card h3 {
+	color: #142b4a;
+	margin-top: 0;
+}
+
+.feature-card p {
+	color: #596579;
+	line-height: 1.6;
+	font-size: 14px;
+}
+
+footer {
+	text-align: center;
+	padding: 24px;
+	color: #596579;
+	font-size: 13px;
+}
+
+@media (max-width: 650px) {
+	.navbar {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	nav {
+		flex-wrap: wrap;
+		gap: 15px;
+	}
+
+	.feature-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.hero {
+		padding: 55px 20px;
+	}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<div class="navbar">
+	<div class="brand">
+		<h1>TradeVault</h1>
+		<p>Trade with confidence.</p>
+	</div>
+
+	<nav>
+		<a href="index.html">Home</a>
+		<a href="registeration.html"> Log In</a>
+		<a href="registeration.html" class="register-link">
+			Register
+		</a>
+	</nav>
+</div>
+</header>
+
+<main>
+<section class="hero">
+	<p class="eyebrow">YOUR TRADING JOURNEY STARTS HERE</p>
+
+	<h2>Your market. Your strategy. Your future.</h2>
+
+	<p>
+		Explore stocks, manage your portfolio, and keep track
+		of your trading activity
+		all in one place.
+	</p>
+
+	<a href="registeration.html" class="button">
+		Create Your Account →
+	</a>
+</section>
+
+<section class="features">
+	<h2>Everything in One Place</h2>
+
+	<div class="feature-grid">
+		<article class="feature-card">
+			<h3>Explore Stocks</h3>
+			<p>
+				Browse available stocks and view their
+				market prices.
+			</p>
+		</article>
+
+		<article class="feature-card">
+			<h3>Your Portfolio</h3>
+			<p>
+				Keep track of your stock holdings and
+				available cash balance.
+			</p>
+		</article>
+
+		<article class="feature-card">
+			<h3>Track Your Activity</h3>
+			<p>
+				Review your transaction history and
+				monitor your trading activity.
+			</p>
+		</article>
+	</div>
+</section>
+</main>
+
+<footer>
+&copy; 2026 TradeVault. All rights reserved.
+</footer>
+
+</body>
+</html>
