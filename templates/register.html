@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Create account{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block heading %}Create your account{% endblock %}
+{% block content %}
+<section class="panel">
+  <form method="post" action="{{ url_for('register') }}">
+    <div class="field">
+      <label for="full-name">Full name</label>
+      <input id="full-name" type="text" name="full_name" value="{{ form.get('full_name', '') }}" autocomplete="name" required>
+    </div>
+    <div class="field">
+      <label for="username">Username</label>
+      <input id="username" type="text" name="username" value="{{ form.get('username', '') }}" autocomplete="username" required>
+    </div>
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" type="email" name="email" value="{{ form.get('email', '') }}" autocomplete="email" required>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" type="password" name="password" minlength="8" autocomplete="new-password" required>
+      <span class="hint">At least 8 characters.</span>
+    </div>
+    <button type="submit" class="wide">Create account</button>
+  </form>
+  <p class="auth-foot">Already have an account? <a href="{{ url_for('login') }}">Log in</a></p>
+</section>
+{% endblock %}

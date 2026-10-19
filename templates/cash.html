@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Cash account{% endblock %}
+{% block heading %}Cash account{% endblock %}
+{% block content %}
+<div class="stack">
+  <section class="panel balance">
+    <div>
+      <p class="figure-label">Available cash</p>
+      <p class="figure">${{ "{:,.2f}".format(balance) }}</p>
+    </div>
+    <p class="meta">Proceeds from stock sales are added to this balance.</p>
+  </section>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Deposit</h2>
+      <form method="post" action="{{ url_for('update_cash', action='deposit') }}">
+        <div class="field">
+          <label for="deposit-amount">Amount ($)</label>
+          <input id="deposit-amount" type="number" name="amount" step="0.01" min="0.01" required>
+          <div class="chips">
+            {% for v in [100, 500, 1000, 5000] %}
+              <button type="button" class="chip" data-target="deposit-amount" data-amount="{{ v }}">${{ "{:,}".format(v) }}</button>
+            {% endfor %}
+          </div>
+        </div>
+        <button type="submit">Deposit</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Withdraw</h2>
+      <form method="post" action="{{ url_for('update_cash', action='withdraw') }}">
+        <div class="field">
+          <label for="withdraw-amount">Amount ($)</label>
+          <input id="withdraw-amount" type="number" name="amount" step="0.01" min="0.01" required>
+          <div class="chips">
+            <button type="button" class="chip" data-target="withdraw-amount" data-amount="{{ '%.2f'|format(balance) }}">Full balance</button>
+          </div>
+        </div>
+        <button type="submit">Withdraw</button>
+      </form>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>Recent activity</h2>
+    <ul class="activity">
+      {% for t in activity %}
+        <li>
+          <div>
+            <span class="activity-type">{{ 'Deposit' if t['type'] == 'deposit' else 'Withdrawal' }}</span>
+            <span class="activity-time">{{ t['timestamp']|nice_time }}</span>
+          </div>
+          <span class="amount {{ 'pos' if t['type'] == 'deposit' else 'neg' }}">
+            {{ '+' if t['type'] == 'deposit' else '-' }}${{ "{:,.2f}".format(t['amount']) }}
+          </span>
+        </li>
+      {% else %}
+        <li class="empty">No activity yet. Deposits and withdrawals will appear here.</li>
+      {% endfor %}
+    </ul>
+  </section>
+</div>
+
+<script>
+  document.querySelectorAll(".chip").forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      var input = document.getElementById(chip.dataset.target);
+      input.value = chip.dataset.amount;
+      input.focus();
+    });
+  });
+</script>
+{% endblock %}
