@@ -22,7 +22,9 @@
       </a>
       <nav class="nav">
         <a href="{{ url_for('market') }}" class="{{ 'active' if request.endpoint == 'market' }}">Market</a>
-        <a href="{{ url_for('cash') }}" class="{{ 'active' if request.endpoint == 'cash' }}">Cash account</a>
+        <a href="{{ url_for('trade') }}" class="{{ 'active' if request.endpoint == 'trade' }}">Trade</a>
+        <a href="{{ url_for('portfolio') }}" class="{{ 'active' if request.endpoint == 'portfolio' }}">Portfolio</a>
+        <a href="{{ url_for('cash') }}" class="{{ 'active' if request.endpoint == 'cash' }}">Cash</a>
         <span class="nav-divider">Admin</span>
         <a href="{{ url_for('admin_market') }}" class="{{ 'active' if request.endpoint == 'admin_market' }}">Market schedule</a>
         <a href="{{ url_for('admin_stocks') }}" class="{{ 'active' if request.endpoint == 'admin_stocks' }}">Stocks</a>
@@ -33,7 +35,7 @@
         </span>
         {% if customer_name %}
           <span class="account">
-            <span class="avatar">{{ customer_initials }}</span><span class="account-name">{{ customer_name }}</span>
+            <span class="avatar" title="Signed in as {{ customer_name }}">{{ customer_initials }}</span>
           </span>
           <a class="header-link" href="{{ url_for('logout') }}">Log out</a>
         {% else %}

@@ -24,7 +24,7 @@ def get_account(db):
 def login_required(view):
     def wrapped(*args, **kwargs):
         if "customer_id" not in session:
-            flash("Please log in to view your cash account.", "error")
+            flash("Please log in to continue.", "error")
             return redirect(url_for("login"))
         return view(*args, **kwargs)
     wrapped.__name__ = view.__name__
@@ -361,7 +361,6 @@ def market_rows(db):
 @app.route("/market")
 def market():
     db = get_db()
-    tick_prices(db)
     stocks = market_rows(db)
     db.close()
     return render_template("market.html", stocks=stocks, tick_seconds=TICK_SECONDS)
@@ -370,8 +369,246 @@ def market():
 @app.route("/api/market")
 def market_api():
     db = get_db()
-    tick_prices(db)
     stocks = market_rows(db)
     is_open, status = market_is_open(db)
     db.close()
     return jsonify({"open": is_open, "status": status, "stocks": stocks})
+
+
+
+# ---------- Buy and sell order engine ----------
+EXECUTION_DELAY = 10  # seconds an order stays pending, so the customer can cancel it
+
+
+def shares_available(db, stock_id):
+    """Shares of a stock not yet owned by any customer (volume minus all holdings)."""
+    volume = db.execute("SELECT volume FROM stocks WHERE stock_id = ?", (stock_id,)).fetchone()["volume"]
+    held = db.execute("SELECT COALESCE(SUM(shares), 0) AS n FROM holdings WHERE stock_id = ?", (stock_id,)).fetchone()["n"]
+    return volume - held
+
+
+def shares_owned(db, customer_id, stock_id):
+    row = db.execute(
+        "SELECT shares FROM holdings WHERE customer_id = ? AND stock_id = ?", (customer_id, stock_id)
+    ).fetchone()
+    return row["shares"] if row else 0
+
+
+def reject_order(db, order, reason):
+    db.execute("UPDATE orders SET status = 'rejected', note = ? WHERE order_id = ?", (reason, order["order_id"]))
+
+
+def execute_order(db, order):
+    price = latest_price(db, order["stock_id"])
+    qty = order["quantity"]
+    total = round(price * qty, 2)
+    account = db.execute(
+        "SELECT * FROM cash_accounts WHERE customer_id = ?", (order["customer_id"],)
+    ).fetchone()
+    owned = shares_owned(db, order["customer_id"], order["stock_id"])
+
+    if order["side"] == "buy":
+        if total > round(account["balance"], 2):
+            return reject_order(db, order, "Not enough cash at the execution price.")
+        if qty > shares_available(db, order["stock_id"]):
+            return reject_order(db, order, "Not enough shares available.")
+        db.execute("UPDATE cash_accounts SET balance = ROUND(balance - ?, 2) WHERE account_id = ?",
+                   (total, account["account_id"]))
+        if owned:
+            db.execute(
+                "UPDATE holdings SET avg_cost = ROUND((shares * avg_cost + ?) / (shares + ?), 4), "
+                "shares = shares + ? WHERE customer_id = ? AND stock_id = ?",
+                (total, qty, qty, order["customer_id"], order["stock_id"]),
+            )
+        else:
+            db.execute("INSERT INTO holdings (customer_id, stock_id, shares, avg_cost) VALUES (?, ?, ?, ?)",
+                       (order["customer_id"], order["stock_id"], qty, price))
+    else:
+        if qty > owned:
+            return reject_order(db, order, "You no longer own enough shares.")
+        db.execute("UPDATE cash_accounts SET balance = ROUND(balance + ?, 2) WHERE account_id = ?",
+                   (total, account["account_id"]))
+        if qty == owned:
+            db.execute("DELETE FROM holdings WHERE customer_id = ? AND stock_id = ?",
+                       (order["customer_id"], order["stock_id"]))
+        else:
+            db.execute("UPDATE holdings SET shares = shares - ? WHERE customer_id = ? AND stock_id = ?",
+                       (qty, order["customer_id"], order["stock_id"]))
+
+    db.execute("UPDATE orders SET status = 'executed', price = ? WHERE order_id = ?", (price, order["order_id"]))
+    db.execute("INSERT INTO transactions (account_id, type, amount, order_id) VALUES (?, ?, ?, ?)",
+               (account["account_id"], order["side"], total, order["order_id"]))
+
+
+def process_orders(db):
+    """Execute pending orders whose cancel window has passed, but only while the market is open."""
+    is_open, _ = market_is_open(db)
+    if not is_open:
+        return
+    due = db.execute(
+        "SELECT * FROM orders WHERE status = 'pending' AND created_at <= ? ORDER BY order_id",
+        (time.time() - EXECUTION_DELAY,),
+    ).fetchall()
+    for order in due:
+        execute_order(db, order)
+    db.commit()
+
+
+@app.before_request
+def run_market():
+    """Each request moves prices (at most every few seconds) and executes orders that are due."""
+    if request.endpoint == "static":
+        return
+    db = get_db()
+    tick_prices(db)
+    process_orders(db)
+    db.close()
+
+
+def customer_orders(db, limit=10):
+    return db.execute(
+        "SELECT o.*, s.ticker FROM orders o JOIN stocks s ON s.stock_id = o.stock_id "
+        "WHERE o.customer_id = ? ORDER BY o.order_id DESC LIMIT ?",
+        (session["customer_id"], limit),
+    ).fetchall()
+
+
+def order_json(o):
+    seconds_left = max(0, int(EXECUTION_DELAY - (time.time() - o["created_at"]))) if o["status"] == "pending" else 0
+    return {
+        "id": o["order_id"], "side": o["side"], "ticker": o["ticker"], "quantity": o["quantity"],
+        "status": o["status"], "price": o["price"], "note": o["note"],
+        "total": round(o["price"] * o["quantity"], 2) if o["price"] is not None else None,
+        "time": nice_time(o["timestamp"]), "seconds_left": seconds_left,
+    }
+
+
+@app.route("/trade")
+@login_required
+def trade():
+    db = get_db()
+    stocks = market_rows(db)
+    for s in stocks:
+        row = db.execute("SELECT stock_id FROM stocks WHERE ticker = ?", (s["ticker"],)).fetchone()
+        s["owned"] = shares_owned(db, session["customer_id"], row["stock_id"])
+    balance = get_account(db)["balance"]
+    orders = [order_json(o) for o in customer_orders(db)]
+    is_open, status = market_is_open(db)
+    db.close()
+    return render_template("trade.html", stocks=stocks, balance=balance, orders=orders,
+                           is_open=is_open, status=status, delay=EXECUTION_DELAY,
+                           selected=request.args.get("ticker", ""))
+
+
+@app.route("/trade/order", methods=["POST"])
+@login_required
+def place_order():
+    side = request.form.get("side")
+    ticker = request.form.get("ticker", "").strip().upper()
+    try:
+        qty = int(request.form.get("quantity", ""))
+    except ValueError:
+        qty = 0
+
+    db = get_db()
+    stock = db.execute("SELECT * FROM stocks WHERE ticker = ?", (ticker,)).fetchone()
+    is_open, _ = market_is_open(db)
+    error = None
+    if side not in ("buy", "sell") or stock is None:
+        error = "Choose a stock and whether to buy or sell."
+    elif qty <= 0:
+        error = "Quantity must be a whole number greater than zero."
+    elif not is_open:
+        error = "The market is closed. Orders can only be placed during market hours."
+    else:
+        price = latest_price(db, stock["stock_id"])
+        if side == "buy":
+            estimate = round(price * qty, 2)
+            if estimate > round(get_account(db)["balance"], 2):
+                error = f"Insufficient cash. {qty} {ticker} costs about ${estimate:,.2f} at the current price."
+            elif qty > shares_available(db, stock["stock_id"]):
+                error = f"Only {shares_available(db, stock['stock_id']):,} shares of {ticker} are available."
+        else:
+            pending_sells = db.execute(
+                "SELECT COALESCE(SUM(quantity), 0) AS n FROM orders WHERE customer_id = ? AND stock_id = ? "
+                "AND side = 'sell' AND status = 'pending'",
+                (session["customer_id"], stock["stock_id"]),
+            ).fetchone()["n"]
+            can_sell = shares_owned(db, session["customer_id"], stock["stock_id"]) - pending_sells
+            if qty > can_sell:
+                error = f"You have {can_sell} shares of {ticker} available to sell."
+
+    if error:
+        flash(error, "error")
+    else:
+        db.execute(
+            "INSERT INTO orders (customer_id, stock_id, side, quantity, created_at) VALUES (?, ?, ?, ?, ?)",
+            (session["customer_id"], stock["stock_id"], side, qty, time.time()),
+        )
+        db.commit()
+        flash(f"{side.capitalize()} order for {qty} {ticker} placed. It executes at the market price "
+              f"in about {EXECUTION_DELAY} seconds unless you cancel it.", "success")
+    db.close()
+    return redirect(url_for("trade", ticker=ticker))
+
+
+@app.route("/trade/cancel/<int:order_id>", methods=["POST"])
+@login_required
+def cancel_order(order_id):
+    db = get_db()
+    order = db.execute(
+        "SELECT status FROM orders WHERE order_id = ? AND customer_id = ?", (order_id, session["customer_id"])
+    ).fetchone()
+    if order is None:
+        flash("Order not found.", "error")
+    elif order["status"] != "pending":
+        flash(f"That order was already {order['status']} and can no longer be cancelled.", "error")
+    else:
+        db.execute("UPDATE orders SET status = 'cancelled' WHERE order_id = ?", (order_id,))
+        db.commit()
+        flash("Order cancelled before it executed.", "success")
+    db.close()
+    return redirect(url_for("trade"))
+
+
+@app.route("/api/orders")
+@login_required
+def orders_api():
+    db = get_db()
+    balance = get_account(db)["balance"]
+    orders = [order_json(o) for o in customer_orders(db)]
+    stocks = [{"ticker": s["ticker"], "price": latest_price(db, s["stock_id"]),
+               "owned": shares_owned(db, session["customer_id"], s["stock_id"])}
+              for s in db.execute("SELECT stock_id, ticker FROM stocks").fetchall()]
+    db.close()
+    return jsonify({"balance": balance, "orders": orders, "stocks": stocks})
+
+
+# ---------- Portfolio and transaction history ----------
+@app.route("/portfolio")
+@login_required
+def portfolio():
+    db = get_db()
+    balance = get_account(db)["balance"]
+    holdings = []
+    for h in db.execute(
+        "SELECT h.*, s.ticker, s.company_name FROM holdings h JOIN stocks s ON s.stock_id = h.stock_id "
+        "WHERE h.customer_id = ? ORDER BY s.ticker", (session["customer_id"],)
+    ).fetchall():
+        price = latest_price(db, h["stock_id"])
+        value = round(price * h["shares"], 2)
+        cost = round(h["avg_cost"] * h["shares"], 2)
+        holdings.append({"ticker": h["ticker"], "company": h["company_name"], "shares": h["shares"],
+                         "avg_cost": h["avg_cost"], "price": price, "value": value,
+                         "gain": round(value - cost, 2)})
+    history = db.execute(
+        "SELECT t.type, t.amount, t.timestamp, o.quantity, o.price, s.ticker "
+        "FROM transactions t JOIN cash_accounts a ON a.account_id = t.account_id "
+        "LEFT JOIN orders o ON o.order_id = t.order_id LEFT JOIN stocks s ON s.stock_id = o.stock_id "
+        "WHERE a.customer_id = ? ORDER BY t.transaction_id DESC",
+        (session["customer_id"],),
+    ).fetchall()
+    db.close()
+    stock_value = round(sum(h["value"] for h in holdings), 2)
+    return render_template("portfolio.html", balance=balance, holdings=holdings, history=history,
+                           stock_value=stock_value, total=round(balance + stock_value, 2))

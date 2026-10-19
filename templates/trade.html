@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Trade{% endblock %}
+{% block heading %}Trade{% endblock %}
+{% block content %}
+<div class="stack">
+  <section class="panel balance">
+    <div>
+      <p class="figure-label">Available cash</p>
+      <p class="figure" id="cash-figure">${{ "{:,.2f}".format(balance) }}</p>
+    </div>
+    <div class="clock">
+      <p class="figure-label">Market</p>
+      <p class="state {{ 'open' if is_open else 'closed' }}">{{ status }}</p>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Place an order</h2>
+      {% if stocks %}
+      <form method="post" action="{{ url_for('place_order') }}">
+        <div class="field">
+          <label for="ticker">Stock</label>
+          <select id="ticker" name="ticker" required>
+            {% for s in stocks %}
+              <option value="{{ s.ticker }}" data-price="{{ s.price }}" data-owned="{{ s.owned }}" data-company="{{ s.company }}"
+                {{ 'selected' if s.ticker == selected }}>{{ s.ticker }} - {{ s.company }} - ${{ "{:,.2f}".format(s.price) }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <span class="label-text">Order type</span>
+          <div class="segmented">
+            <input type="radio" id="side-buy" name="side" value="buy" checked><label for="side-buy">Buy</label>
+            <input type="radio" id="side-sell" name="side" value="sell"><label for="side-sell">Sell</label>
+          </div>
+        </div>
+        <div class="field">
+          <label for="quantity">Shares</label>
+          <input id="quantity" type="number" name="quantity" min="1" step="1" required>
+          <span class="hint" id="order-hint"></span>
+        </div>
+        <button type="submit">Place order</button>
+        <p class="meta">Orders execute at the market price about {{ delay }} seconds after you place them. You can cancel until then.</p>
+      </form>
+      {% else %}
+        <p class="empty">No stocks are listed yet.</p>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <h2>Your orders</h2>
+      <ul class="orders" id="orders"></ul>
+    </section>
+  </div>
+</div>
+
+<script>
+  var CANCEL_URL = "{{ url_for('cancel_order', order_id=0) }}".replace(/0$/, "");
+  function esc(t) { var d = document.createElement("div"); d.textContent = t; return d.innerHTML; }
+  function money(n) { return "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+  function renderOrders(orders) {
+    var list = document.getElementById("orders");
+    if (!orders.length) { list.innerHTML = '<li class="empty">No orders yet.</li>'; return; }
+    list.innerHTML = orders.map(function (o) {
+      var what = (o.side === "buy" ? "Buy " : "Sell ") + o.quantity + " " + esc(o.ticker);
+      var right;
+      if (o.status === "pending") {
+        right = '<span class="tag pending">Pending ' + o.seconds_left + 's</span>' +
+          '<form method="post" action="' + CANCEL_URL + o.id + '"><button type="submit" class="link-button">Cancel</button></form>';
+      } else if (o.status === "executed") {
+        right = '<span class="tag open">Executed</span><span class="order-detail">' + money(o.total) + ' at ' + money(o.price) + '</span>';
+      } else if (o.status === "cancelled") {
+        right = '<span class="tag neutral">Cancelled</span>';
+      } else {
+        right = '<span class="tag closed">Rejected</span><span class="order-detail">' + esc(o.note || "") + '</span>';
+      }
+      return '<li><div><span class="activity-type">' + what + '</span><span class="activity-time">' + esc(o.time) +
+        '</span></div><div class="order-status">' + right + '</div></li>';
+    }).join("");
+  }
+
+  function updateHint() {
+    var sel = document.getElementById("ticker");
+    if (!sel) return;
+    var opt = sel.options[sel.selectedIndex];
+    var qty = parseInt(document.getElementById("quantity").value, 10) || 0;
+    var side = document.querySelector("input[name=side]:checked").value;
+    var text = "You own " + opt.dataset.owned + " shares.";
+    if (qty > 0) text += " Estimated " + (side === "buy" ? "cost" : "proceeds") + ": " + money(qty * parseFloat(opt.dataset.price)) + ".";
+    document.getElementById("order-hint").textContent = text;
+  }
+
+  function refresh() {
+    fetch("{{ url_for('orders_api') }}").then(function (r) { return r.json(); }).then(function (d) {
+      document.getElementById("cash-figure").textContent = money(d.balance);
+      renderOrders(d.orders);
+      var sel = document.getElementById("ticker");
+      if (sel) {
+        d.stocks.forEach(function (s) {
+          var opt = sel.querySelector('option[value="' + s.ticker + '"]');
+          if (!opt) return;
+          opt.dataset.price = s.price;
+          opt.dataset.owned = s.owned;
+          opt.textContent = s.ticker + " - " + opt.dataset.company + " - " + money(s.price);
+        });
+        updateHint();
+      }
+    }).catch(function () {});
+  }
+
+  renderOrders({{ orders|tojson }});
+  ["ticker", "quantity"].forEach(function (id) {
+    var el = document.getElementById(id); if (el) { el.addEventListener("input", updateHint); el.addEventListener("change", updateHint); }
+  });
+  document.querySelectorAll("input[name=side]").forEach(function (r) { r.addEventListener("change", updateHint); });
+  updateHint();
+  setInterval(refresh, 2000);
+</script>
+{% endblock %}

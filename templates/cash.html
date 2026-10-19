@@ -49,11 +49,11 @@
       {% for t in activity %}
         <li>
           <div>
-            <span class="activity-type">{{ 'Deposit' if t['type'] == 'deposit' else 'Withdrawal' }}</span>
+            <span class="activity-type">{{ {'deposit': 'Deposit', 'withdraw': 'Withdrawal', 'buy': 'Stock purchase', 'sell': 'Stock sale'}[t['type']] }}</span>
             <span class="activity-time">{{ t['timestamp']|nice_time }}</span>
           </div>
-          <span class="amount {{ 'pos' if t['type'] == 'deposit' else 'neg' }}">
-            {{ '+' if t['type'] == 'deposit' else '-' }}${{ "{:,.2f}".format(t['amount']) }}
+          <span class="amount {{ 'pos' if t['type'] in ('deposit', 'sell') else 'neg' }}">
+            {{ '+' if t['type'] in ('deposit', 'sell') else '-' }}${{ "{:,.2f}".format(t['amount']) }}
           </span>
         </li>
       {% else %}

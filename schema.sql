@@ -19,8 +19,9 @@ CREATE TABLE cash_accounts (
 CREATE TABLE transactions (
     transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
     account_id     INTEGER NOT NULL REFERENCES cash_accounts(account_id),
-    type           TEXT NOT NULL,
+    type           TEXT NOT NULL,                     -- deposit, withdraw, buy, sell
     amount         REAL NOT NULL,
+    order_id       INTEGER REFERENCES orders(order_id),  -- set for buy and sell
     timestamp      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -55,4 +56,28 @@ CREATE TABLE price_history (
     stock_id  INTEGER NOT NULL REFERENCES stocks(stock_id),
     price     REAL NOT NULL,
     timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS holdings;
+
+CREATE TABLE orders (
+    order_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER NOT NULL REFERENCES customers(customer_id),
+    stock_id    INTEGER NOT NULL REFERENCES stocks(stock_id),
+    side        TEXT NOT NULL CHECK (side IN ('buy', 'sell')),
+    quantity    INTEGER NOT NULL CHECK (quantity > 0),
+    status      TEXT NOT NULL DEFAULT 'pending',  -- pending, executed, cancelled, rejected
+    price       REAL,                              -- market price when executed
+    note        TEXT,                              -- reason when rejected
+    created_at  REAL NOT NULL,                     -- seconds since epoch, for the cancel window
+    timestamp   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE holdings (
+    customer_id INTEGER NOT NULL REFERENCES customers(customer_id),
+    stock_id    INTEGER NOT NULL REFERENCES stocks(stock_id),
+    shares      INTEGER NOT NULL CHECK (shares > 0),
+    avg_cost    REAL NOT NULL,
+    PRIMARY KEY (customer_id, stock_id)
 );

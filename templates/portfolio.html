@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Portfolio{% endblock %}
+{% block heading %}Portfolio{% endblock %}
+{% block content %}
+<div class="stack">
+  <div class="stats">
+    <section class="panel">
+      <p class="figure-label">Cash</p>
+      <p class="stat">${{ "{:,.2f}".format(balance) }}</p>
+    </section>
+    <section class="panel">
+      <p class="figure-label">Stocks</p>
+      <p class="stat">${{ "{:,.2f}".format(stock_value) }}</p>
+    </section>
+    <section class="panel">
+      <p class="figure-label">Total value</p>
+      <p class="stat">${{ "{:,.2f}".format(total) }}</p>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>Holdings</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Ticker</th><th>Company</th><th class="num">Shares</th><th class="num">Avg cost</th>
+            <th class="num">Price</th><th class="num">Market value</th><th class="num">Gain/loss</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in holdings %}
+          <tr>
+            <td><span class="badge">{{ h.ticker }}</span></td>
+            <td>{{ h.company }}</td>
+            <td class="num">{{ "{:,}".format(h.shares) }}</td>
+            <td class="num">${{ "{:,.2f}".format(h.avg_cost) }}</td>
+            <td class="num">${{ "{:,.2f}".format(h.price) }}</td>
+            <td class="num">${{ "{:,.2f}".format(h.value) }}</td>
+            <td class="num chg {{ 'pos' if h.gain >= 0 else 'neg' }}">{{ '+' if h.gain >= 0 else '-' }}${{ "{:,.2f}".format(h.gain|abs) }}</td>
+            <td class="num"><a class="table-link" href="{{ url_for('trade', ticker=h.ticker) }}">Trade</a></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" class="empty">You don't own any stocks yet. Buy shares on the <a class="table-link" href="{{ url_for('trade') }}">Trade</a> page.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Transaction history</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Type</th><th>Details</th><th class="num">Amount</th></tr></thead>
+        <tbody>
+          {% for t in history %}
+          <tr>
+            <td>{{ t['timestamp']|nice_time }}</td>
+            <td>{{ {'deposit': 'Deposit', 'withdraw': 'Withdrawal', 'buy': 'Buy', 'sell': 'Sell'}[t['type']] }}</td>
+            <td>{% if t['ticker'] %}{{ t['quantity'] }} {{ t['ticker'] }} at ${{ "{:,.2f}".format(t['price']) }}{% else %}Cash account{% endif %}</td>
+            <td class="num chg {{ 'pos' if t['type'] in ('deposit', 'sell') else 'neg' }}">{{ '+' if t['type'] in ('deposit', 'sell') else '-' }}${{ "{:,.2f}".format(t['amount']) }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="empty">No transactions yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{% endblock %}
