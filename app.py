@@ -1,7 +1,9 @@
+import random
 import sqlite3
+import time
 from datetime import datetime, timedelta, timezone
 
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
@@ -295,3 +297,81 @@ def create_stock():
         flash(f"{ticker} created at ${price:,.2f}.", "success")
     db.close()
     return redirect(url_for("admin_stocks"))
+
+
+
+# ---------- Random stock price generator and market listing ----------
+TICK_SECONDS = 3      # at most one price change every 3 seconds
+MAX_STEP = 0.005      # each change moves a price up or down by at most 0.5%
+_last_tick = 0.0
+
+
+def latest_price(db, stock_id):
+    return db.execute(
+        "SELECT price FROM price_history WHERE stock_id = ? ORDER BY price_history_id DESC LIMIT 1",
+        (stock_id,),
+    ).fetchone()["price"]
+
+
+def tick_prices(db):
+    """While the market is open, move every stock's price a small random step."""
+    global _last_tick
+    is_open, _ = market_is_open(db)
+    if not is_open or time.time() - _last_tick < TICK_SECONDS:
+        return
+    _last_tick = time.time()
+    for s in db.execute("SELECT stock_id FROM stocks").fetchall():
+        old = latest_price(db, s["stock_id"])
+        step = random.uniform(-MAX_STEP, MAX_STEP)
+        new = round(old * (1 + step), 2)
+        if new == old:  # low-priced stocks: move at least one cent
+            new = round(old + (0.01 if step >= 0 else -0.01), 2)
+        new = max(0.01, new)
+        db.execute("INSERT INTO price_history (stock_id, price) VALUES (?, ?)", (s["stock_id"], new))
+    db.commit()
+
+
+def market_rows(db):
+    # start of today in local time, converted to UTC because SQLite stores UTC
+    start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    start_utc = start.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    rows = []
+    for s in db.execute("SELECT * FROM stocks ORDER BY ticker").fetchall():
+        price = latest_price(db, s["stock_id"])
+        today = [r["price"] for r in db.execute(
+            "SELECT price FROM price_history WHERE stock_id = ? AND timestamp >= ? ORDER BY price_history_id",
+            (s["stock_id"], start_utc),
+        ).fetchall()] or [price]
+        opening = today[0]
+        rows.append({
+            "ticker": s["ticker"],
+            "company": s["company_name"],
+            "price": price,
+            "open": opening,
+            "high": max(today),
+            "low": min(today),
+            "change": round(price - opening, 2),
+            "change_pct": round((price - opening) / opening * 100, 2),
+            "volume": s["volume"],
+            "market_cap": round(s["volume"] * price, 2),
+        })
+    return rows
+
+
+@app.route("/market")
+def market():
+    db = get_db()
+    tick_prices(db)
+    stocks = market_rows(db)
+    db.close()
+    return render_template("market.html", stocks=stocks, tick_seconds=TICK_SECONDS)
+
+
+@app.route("/api/market")
+def market_api():
+    db = get_db()
+    tick_prices(db)
+    stocks = market_rows(db)
+    is_open, status = market_is_open(db)
+    db.close()
+    return jsonify({"open": is_open, "status": status, "stocks": stocks})

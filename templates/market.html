@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Market{% endblock %}
+{% block heading %}Market{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <h2>Stocks available to trade</h2>
+    <p class="meta" id="market-note">
+      {% if market_open %}Prices update every {{ tick_seconds }} seconds while the market is open.{% else %}The market is closed. Prices update during market hours.{% endif %}
+    </p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th>Company</th>
+          <th class="num">Price</th>
+          <th class="num">Change</th>
+          <th class="num">Open</th>
+          <th class="num">High</th>
+          <th class="num">Low</th>
+          <th class="num">Volume</th>
+          <th class="num">Market cap</th>
+        </tr>
+      </thead>
+      <tbody id="market-body">
+        {% for s in stocks %}
+        <tr data-ticker="{{ s.ticker }}">
+          <td><span class="badge">{{ s.ticker }}</span></td>
+          <td>{{ s.company }}</td>
+          <td class="num price">${{ "{:,.2f}".format(s.price) }}</td>
+          <td class="num chg {{ 'pos' if s.change >= 0 else 'neg' }}">{{ '+' if s.change >= 0 else '-' }}${{ "{:,.2f}".format(s.change|abs) }} ({{ "%.2f"|format(s.change_pct|abs) }}%)</td>
+          <td class="num">${{ "{:,.2f}".format(s.open) }}</td>
+          <td class="num">${{ "{:,.2f}".format(s.high) }}</td>
+          <td class="num">${{ "{:,.2f}".format(s.low) }}</td>
+          <td class="num">{{ "{:,}".format(s.volume) }}</td>
+          <td class="num">${{ "{:,.2f}".format(s.market_cap) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="empty">No stocks listed yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+  var TICK_MS = {{ tick_seconds * 1000 }};
+  function esc(t) { var d = document.createElement("div"); d.textContent = t; return d.innerHTML; }
+  function money(n) { return "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  var lastPrice = {};
+  document.querySelectorAll("#market-body tr[data-ticker]").forEach(function (tr) {
+    lastPrice[tr.dataset.ticker] = tr.querySelector(".price").textContent;
+  });
+
+  function refresh() {
+    fetch("{{ url_for('market_api') }}")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var note = document.getElementById("market-note");
+        note.textContent = data.open
+          ? "Prices update every " + (TICK_MS / 1000) + " seconds while the market is open."
+          : "The market is closed. Prices update during market hours.";
+        var pill = document.querySelector(".status");
+        if (pill) {
+          pill.className = "status " + (data.open ? "open" : "closed");
+          pill.lastChild.textContent = data.open ? "Market open" : "Market closed";
+        }
+        if (!data.stocks.length) return;
+        var html = data.stocks.map(function (s) {
+          var up = s.change >= 0;
+          var priceText = money(s.price);
+          var moved = lastPrice[s.ticker] && lastPrice[s.ticker] !== priceText;
+          var dir = moved ? (s.price > parseFloat(lastPrice[s.ticker].replace(/[$,]/g, "")) ? "tick-up" : "tick-down") : "";
+          lastPrice[s.ticker] = priceText;
+          return '<tr data-ticker="' + esc(s.ticker) + '">' +
+            '<td><span class="badge">' + esc(s.ticker) + '</span></td>' +
+            '<td>' + esc(s.company) + '</td>' +
+            '<td class="num price ' + dir + '">' + priceText + '</td>' +
+            '<td class="num chg ' + (up ? "pos" : "neg") + '">' + (up ? "+" : "-") + money(Math.abs(s.change)) +
+              ' (' + Math.abs(s.change_pct).toFixed(2) + '%)</td>' +
+            '<td class="num">' + money(s.open) + '</td>' +
+            '<td class="num">' + money(s.high) + '</td>' +
+            '<td class="num">' + money(s.low) + '</td>' +
+            '<td class="num">' + Number(s.volume).toLocaleString("en-US") + '</td>' +
+            '<td class="num">' + money(s.market_cap) + '</td></tr>';
+        }).join("");
+        document.getElementById("market-body").innerHTML = html;
+      })
+      .catch(function () {});
+  }
+  setInterval(refresh, TICK_MS);
+</script>
+{% endblock %}

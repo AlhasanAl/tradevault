@@ -284,3 +284,11 @@ button.wide { width: 100%; }
 .auth-foot a { color: var(--primary); font-weight: 500; }
 .header-link { color: #C9D3DD; font-size: 14px; text-decoration: none; }
 .header-link:hover { color: #fff; }
+
+/* ---------- Market listing ---------- */
+.chg { font-weight: 600; }
+.chg.pos { color: var(--gain); }
+.chg.neg { color: var(--loss); }
+.price { font-weight: 600; transition: background-color 0.6s; border-radius: 4px; }
+.tick-up { background: var(--gain-bg); }
+.tick-down { background: var(--loss-bg); }

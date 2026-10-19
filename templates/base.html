@@ -21,6 +21,7 @@
         TradeVault
       </a>
       <nav class="nav">
+        <a href="{{ url_for('market') }}" class="{{ 'active' if request.endpoint == 'market' }}">Market</a>
         <a href="{{ url_for('cash') }}" class="{{ 'active' if request.endpoint == 'cash' }}">Cash account</a>
         <span class="nav-divider">Admin</span>
         <a href="{{ url_for('admin_market') }}" class="{{ 'active' if request.endpoint == 'admin_market' }}">Market schedule</a>
