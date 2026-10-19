@@ -8,6 +8,12 @@
       <p class="figure-label">Market status right now</p>
       <p class="state {{ 'open' if is_open else 'closed' }}">{{ status }}</p>
       <p class="meta">Trading hours {{ sched['open_time']|clock }} to {{ sched['close_time']|clock }}, weekdays only</p>
+      <form method="post" action="{{ url_for('set_override') }}" class="override">
+        <span class="label-text">Override</span>
+        <button type="submit" name="override" value="open" class="pill-button {{ 'on' if override == 'open' }}">Open now</button>
+        <button type="submit" name="override" value="closed" class="pill-button {{ 'on' if override == 'closed' }}">Close now</button>
+        <button type="submit" name="override" value="schedule" class="pill-button {{ 'on' if not override }}">Follow schedule</button>
+      </form>
     </div>
     <div class="clock">
       <p class="figure-label">Local time</p>

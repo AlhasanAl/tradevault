@@ -31,7 +31,8 @@ DROP TABLE IF EXISTS holidays;
 CREATE TABLE market_schedule (
     schedule_id INTEGER PRIMARY KEY,
     open_time   TEXT NOT NULL,
-    close_time  TEXT NOT NULL
+    close_time  TEXT NOT NULL,
+    override    TEXT CHECK (override IN ('open', 'closed'))  -- NULL = follow the schedule
 );
 
 CREATE TABLE holidays (
