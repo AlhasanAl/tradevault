@@ -1,13 +1,11 @@
 import sqlite3
 from datetime import datetime, timedelta, timezone
 
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, session
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = "dev"  # needed for on-screen messages; change before deploying
-
-CUSTOMER_ID = 1  # test customer until login is built
-
 
 def get_db():
     conn = sqlite3.connect("tradevault.db")
@@ -17,8 +15,18 @@ def get_db():
 
 def get_account(db):
     return db.execute(
-        "SELECT * FROM cash_accounts WHERE customer_id = ?", (CUSTOMER_ID,)
+        "SELECT * FROM cash_accounts WHERE customer_id = ?", (session["customer_id"],)
     ).fetchone()
+
+
+def login_required(view):
+    def wrapped(*args, **kwargs):
+        if "customer_id" not in session:
+            flash("Please log in to view your cash account.", "error")
+            return redirect(url_for("login"))
+        return view(*args, **kwargs)
+    wrapped.__name__ = view.__name__
+    return wrapped
 
 
 def market_is_open(db):
@@ -41,11 +49,15 @@ def market_is_open(db):
 def inject_globals():
     db = get_db()
     is_open, _ = market_is_open(db)
-    customer = db.execute(
-        "SELECT full_name FROM customers WHERE customer_id = ?", (CUSTOMER_ID,)
-    ).fetchone()
+    customer = None
+    if "customer_id" in session:
+        customer = db.execute(
+            "SELECT full_name FROM customers WHERE customer_id = ?", (session["customer_id"],)
+        ).fetchone()
     db.close()
-    name = customer["full_name"] if customer else "Guest"
+    if customer is None:
+        return {"market_open": is_open, "customer_name": None, "customer_initials": ""}
+    name = customer["full_name"]
     initials = "".join(part[0] for part in name.split()[:2]).upper()
     return {"market_open": is_open, "customer_name": name, "customer_initials": initials}
 
@@ -68,11 +80,69 @@ def nice_time(value):
 
 @app.route("/")
 def home():
-    return redirect(url_for("cash"))
+    return redirect(url_for("cash") if "customer_id" in session else url_for("login"))
+
+
+# ---------- Create account and log in (customer) ----------
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        full_name = request.form["full_name"].strip()
+        username = request.form["username"].strip().lower()
+        email = request.form["email"].strip().lower()
+        password = request.form["password"]
+
+        if not full_name or not username or not email:
+            flash("Full name, username, and email are required.", "error")
+        elif len(password) < 8:
+            flash("Password must be at least 8 characters.", "error")
+        else:
+            db = get_db()
+            if db.execute("SELECT 1 FROM customers WHERE username = ?", (username,)).fetchone():
+                flash("That username is already taken.", "error")
+            elif db.execute("SELECT 1 FROM customers WHERE email = ?", (email,)).fetchone():
+                flash("An account with that email already exists.", "error")
+            else:
+                cur = db.execute(
+                    "INSERT INTO customers (full_name, username, email, password_hash) VALUES (?, ?, ?, ?)",
+                    (full_name, username, email, generate_password_hash(password)),
+                )
+                db.execute("INSERT INTO cash_accounts (customer_id, balance) VALUES (?, 0)", (cur.lastrowid,))
+                db.commit()
+                db.close()
+                session["customer_id"] = cur.lastrowid
+                flash(f"Welcome to TradeVault, {full_name}. Your cash account is ready.", "success")
+                return redirect(url_for("cash"))
+            db.close()
+        return render_template("register.html", form=request.form)
+    return render_template("register.html", form={})
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form["username"].strip().lower()
+        db = get_db()
+        customer = db.execute("SELECT * FROM customers WHERE username = ?", (username,)).fetchone()
+        db.close()
+        if customer and check_password_hash(customer["password_hash"], request.form["password"]):
+            session["customer_id"] = customer["customer_id"]
+            return redirect(url_for("cash"))
+        flash("Incorrect username or password.", "error")
+        return render_template("login.html", username=username)
+    return render_template("login.html", username="")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    flash("You have been logged out.", "success")
+    return redirect(url_for("login"))
 
 
 # ---------- Cash account (customer) ----------
 @app.route("/cash")
+@login_required
 def cash():
     db = get_db()
     account = get_account(db)
@@ -86,6 +156,7 @@ def cash():
 
 
 @app.route("/cash/<action>", methods=["POST"])
+@login_required
 def update_cash(action):
     try:
         amount = round(float(request.form["amount"]), 2)

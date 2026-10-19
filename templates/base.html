@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
   <header class="topbar">
     <div class="topbar-inner">
       <a class="brand" href="{{ url_for('cash') }}">
@@ -30,9 +30,14 @@
         <span class="status {{ 'open' if market_open else 'closed' }}">
           <span class="dot"></span>Market {{ 'open' if market_open else 'closed' }}
         </span>
-        <span class="account">
-          <span class="avatar">{{ customer_initials }}</span>{{ customer_name }}
-        </span>
+        {% if customer_name %}
+          <span class="account">
+            <span class="avatar">{{ customer_initials }}</span><span class="account-name">{{ customer_name }}</span>
+          </span>
+          <a class="header-link" href="{{ url_for('logout') }}">Log out</a>
+        {% else %}
+          <a class="header-link" href="{{ url_for('login') }}">Log in</a>
+        {% endif %}
       </div>
     </div>
   </header>

@@ -31,7 +31,7 @@ body {
 /* ---------- Top bar ---------- */
 .topbar { background: var(--ink); color: #fff; }
 .topbar-inner {
-  max-width: 1000px;
+  max-width: 1100px;
   margin: 0 auto;
   padding: var(--space-2) var(--space-3);
   display: flex;
@@ -40,7 +40,7 @@ body {
   flex-wrap: wrap;
 }
 .brand { color: #fff; font-size: 20px; font-weight: 600; text-decoration: none; }
-.nav { display: flex; align-items: center; gap: var(--space-3); flex: 1; flex-wrap: wrap; }
+.nav { display: flex; align-items: center; gap: var(--space-3); flex: 1; white-space: nowrap; }
 .nav a {
   color: #C9D3DD;
   text-decoration: none;
@@ -70,7 +70,7 @@ body {
 .status.closed .dot { background: #E5604F; }
 
 /* ---------- Page ---------- */
-main { max-width: 1000px; margin: 0 auto; padding: var(--space-4) var(--space-3); }
+main { max-width: 1100px; margin: 0 auto; padding: var(--space-4) var(--space-3); }
 h1 { font-size: 28px; font-weight: 600; margin: 0 0 var(--space-3); }
 h2 { font-size: 18px; font-weight: 600; margin: 0 0 var(--space-2); }
 
@@ -262,3 +262,25 @@ tbody tr:last-child td { border-bottom: 0; }
   .balance .meta, .clock { text-align: left; }
   .account { display: none; }
 }
+
+@media (max-width: 1140px) {
+  .topbar-inner { gap: var(--space-2) var(--space-3); }
+  .nav { gap: var(--space-2); }
+  .account-name { display: none; }
+}
+@media (max-width: 720px) {
+  .nav { flex-wrap: wrap; }
+}
+@media (max-width: 880px) {
+  .topbar-inner { justify-content: space-between; }
+  .nav { order: 3; flex-basis: 100%; flex-wrap: wrap; }
+}
+
+/* ---------- Create account and log in ---------- */
+.auth-page main { max-width: 488px; }
+button.wide { width: 100%; }
+.hint { font-size: 13px; color: var(--muted); }
+.auth-foot { margin: var(--space-2) 0 0; font-size: 15px; color: var(--muted); text-align: center; }
+.auth-foot a { color: var(--primary); font-weight: 500; }
+.header-link { color: #C9D3DD; font-size: 14px; text-decoration: none; }
+.header-link:hover { color: #fff; }

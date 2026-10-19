@@ -3,10 +3,11 @@ DROP TABLE IF EXISTS cash_accounts;
 DROP TABLE IF EXISTS customers;
 
 CREATE TABLE customers (
-    customer_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    full_name   TEXT NOT NULL,
-    username    TEXT NOT NULL UNIQUE,
-    email       TEXT NOT NULL UNIQUE
+    customer_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    full_name     TEXT NOT NULL,
+    username      TEXT NOT NULL UNIQUE,
+    email         TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL
 );
 
 CREATE TABLE cash_accounts (
@@ -22,10 +23,6 @@ CREATE TABLE transactions (
     amount         REAL NOT NULL,
     timestamp      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-
-INSERT INTO customers (full_name, username, email)
-VALUES ('Test Customer', 'testuser', 'test@example.com');
-INSERT INTO cash_accounts (customer_id, balance) VALUES (1, 0);
 
 DROP TABLE IF EXISTS market_schedule;
 DROP TABLE IF EXISTS holidays;
