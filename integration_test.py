@@ -145,4 +145,52 @@ ok("market page and API work", a.get("/market").status_code == 200 and a.get("/a
 ok("admin pages work", admin.get("/admin/stocks").status_code == 200 and admin.get("/admin/market").status_code == 200)
 ok("trade page loads", a.get("/trade").status_code == 200)
 
+print("--- Administrator override (simulated Sunday night)")
+from datetime import datetime as _dt
+class SundayNight(_dt):
+    @classmethod
+    def now(cls, tz=None):
+        return _dt(2026, 10, 18, 22, 0)
+real_dt = A.datetime
+A.datetime = SundayNight
+admin.post("/admin/market/hours", data={"open_time": "00:00", "close_time": "23:59"})
+admin.post("/admin/market/override", data={"override": "schedule"})
+d = a.get("/api/market").get_json()
+ok("Sunday: closed even with all-day hours", d["open"] is False and d["status"] == "Closed: weekend")
+r = a.post("/trade/order", data={"ticker": "TSLA", "side": "buy", "quantity": "1"})
+ok("Sunday: orders refused", flash_of(r.text)[0] == "error" and "market is closed" in flash_of(r.text)[1])
+r = admin.post("/admin/market/override", data={"override": "open"})
+ok("override open message", flash_of(r.text) == ("success", "Market opened by administrator override."))
+d = a.get("/api/market").get_json()
+ok("Sunday + override: market open", d["open"] is True and d["status"] == "Open (administrator override)")
+A._last_tick = 0
+p0 = A.latest_price(A.get_db(), 2); A._last_tick = 0; a.get("/api/market"); A._last_tick = 0; a.get("/api/market")
+ok("Sunday + override: price history grows", len(q("SELECT * FROM price_history WHERE stock_id=2")) > 3)
+a.post("/cash/deposit", data={"amount": "1000"})
+a.post("/trade/order", data={"ticker": "TSLA", "side": "buy", "quantity": "1"})
+oid = q("SELECT order_id FROM orders ORDER BY order_id DESC LIMIT 1")[0]["order_id"]
+age_orders(); a.get("/trade")
+ok("Sunday + override: order executes", q("SELECT status FROM orders WHERE order_id=?", oid)[0]["status"] == "executed")
+admin.post("/admin/market/override", data={"override": "closed"})
+ok("override closed: market closed", a.get("/api/market").get_json()["status"] == "Closed (administrator override)")
+r = admin.post("/admin/market/override", data={"override": "bogus"})
+ok("invalid override refused", flash_of(r.text)[0] == "error")
+admin.post("/admin/market/override", data={"override": "schedule"})
+ok("follow schedule: back to weekend rule", a.get("/api/market").get_json()["status"] == "Closed: weekend")
+A.datetime = real_dt
+ok("market schedule page shows override controls", "Open now" in admin.get("/admin/market").text)
+
+print("--- Database rebuilt while logged in")
+stale = Browser()
+stale.post("/register", data={"full_name": "Stale User", "username": "stale", "email": "s@example.com", "password": "password1"})
+import subprocess as _sp, sys as _sys
+_sp.run([_sys.executable, "init_db.py"], check=True, capture_output=True)
+r = stale.get("/cash", follow_redirects=False)
+ok("deleted account: redirected to login instead of crashing", r.status_code == 302 and "/login" in r.location)
+r = stale.get("/cash")
+ok("deleted account: login page explains", r.status_code == 200 and flash_of(r.text) == ("error", "Please log in to continue."))
+ok("deleted account: header shows Log in, not a stale name", "Log out" not in r.text)
+for path in ("/trade", "/portfolio", "/api/orders"):
+    ok(f"deleted account: {path} does not crash", stale.get(path, follow_redirects=False).status_code == 302)
+
 print(f"\n{sum(results)}/{len(results)} passed")

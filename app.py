@@ -23,6 +23,13 @@ def get_account(db):
 
 def login_required(view):
     def wrapped(*args, **kwargs):
+        if "customer_id" in session:
+            # the account may be gone if the database was rebuilt with init_db.py
+            db = get_db()
+            exists = db.execute("SELECT 1 FROM customers WHERE customer_id = ?", (session["customer_id"],)).fetchone()
+            db.close()
+            if not exists:
+                session.clear()
         if "customer_id" not in session:
             flash("Please log in to continue.", "error")
             return redirect(url_for("login"))
@@ -32,6 +39,11 @@ def login_required(view):
 
 
 def market_is_open(db):
+    override = db.execute("SELECT override FROM market_schedule WHERE schedule_id = 1").fetchone()["override"]
+    if override == "open":
+        return True, "Open (administrator override)"
+    if override == "closed":
+        return False, "Closed (administrator override)"
     now = datetime.now()
     if now.weekday() >= 5:
         return False, "Closed: weekend"
@@ -201,6 +213,7 @@ def admin_market():
     ).fetchone()
     holidays = db.execute("SELECT holiday_date FROM holidays ORDER BY holiday_date").fetchall()
     is_open, status = market_is_open(db)
+    override = db.execute("SELECT override FROM market_schedule WHERE schedule_id = 1").fetchone()["override"]
     holiday_dates = {h["holiday_date"] for h in holidays}
     db.close()
 
@@ -218,7 +231,7 @@ def admin_market():
             "today": i == now.weekday(),
         })
     return render_template("admin_market.html", sched=sched, holidays=holidays,
-                           status=status, is_open=is_open, week=week,
+                           status=status, is_open=is_open, week=week, override=override,
                            now=now.strftime("%I:%M %p").lstrip("0"))
 
 
@@ -237,6 +250,23 @@ def update_hours():
         db.commit()
         db.close()
         flash(f"Market hours set to {clock(open_time)} - {clock(close_time)}.", "success")
+    return redirect(url_for("admin_market"))
+
+
+@app.route("/admin/market/override", methods=["POST"])
+def set_override():
+    choice = request.form.get("override")
+    value = {"open": "open", "closed": "closed", "schedule": None}.get(choice, "invalid")
+    if value == "invalid":
+        flash("Choose open, closed, or follow the schedule.", "error")
+    else:
+        db = get_db()
+        db.execute("UPDATE market_schedule SET override = ? WHERE schedule_id = 1", (value,))
+        db.commit()
+        db.close()
+        flash({"open": "Market opened by administrator override.",
+               "closed": "Market closed by administrator override.",
+               "schedule": "Market now follows the regular schedule."}[choice], "success")
     return redirect(url_for("admin_market"))
 
 
